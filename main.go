@@ -36,8 +36,9 @@ func main() {
 			for i := 0; i < world_width; i++ {
 				for j := 0; j < world_height; j++ {
 					if i > 0 && i < len(world)-1 && j > 0 && j < len(world[0])-1 {
-						N := neighbors(world, i, j)
+						N := neighbors(world, i, j) // count the neighbors
 
+						// rules
 						if world[i][j] == 1 {
 							if N == 2 {
 								next_world[i][j] = world[i][j]
@@ -60,6 +61,7 @@ func main() {
 					}
 				}
 			}
+			// update world state
 			world = next_world
 
 		}
