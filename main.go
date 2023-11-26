@@ -70,27 +70,18 @@ func updateWorld(world [][]uint8, next_world [][]uint8) [][]uint8 {
 				N := neighbors(world, i, j)
 
 				if world[i][j] == 1 {
-					if N == 2 {
-						next_world[i][j] = world[i][j]
+					switch {
+						case (N == 2 || N == 3):
+							next_world[i][j] = world[i][j]
+						case (N > 3 || N < 2):
+							next_world[i][j] = 0
 					}
-					if N == 3 {
-						next_world[i][j] = world[i][j]
-					}
-					if N > 3 {
-						next_world[i][j] = 0
-					}
-					if N < 2 {
-						next_world[i][j] = 0
-					}
-				} else {
-					if N == 3 {
+				} else if N == 3 {
 						next_world[i][j] = 1
 					}
 				}
-
 			}
 		}
-	}
 
 	world = next_world
 	return world
