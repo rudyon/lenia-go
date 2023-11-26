@@ -6,7 +6,7 @@ import (
 
 func main() {
 	const window_width, window_height = 800, 800
-	const world_width, world_height = 400, 400
+	const world_width, world_height = 50, 50
 	const scaling_value = window_height / world_height
 
 	rl.InitWindow(window_width, window_height, "lenia-go")
@@ -15,14 +15,8 @@ func main() {
 
 	var world = make([][]uint8, world_height)
 	for i := range world {
-		world[i] = make([]uint8, world_width)
-		for j := range world[i] {
-			world[i][j] = 0
-		}
+	    world[i] = make([]uint8, world_width)
 	}
-
-	var next_world = make([][]uint8, len(world))
-	copy(next_world, world)
 
 	for !rl.WindowShouldClose() {
 		if rl.IsMouseButtonDown(rl.MouseLeftButton) {
@@ -32,8 +26,7 @@ func main() {
 		}
 
 		if rl.IsKeyPressed(rl.KeyN) || rl.IsKeyDown(rl.KeySpace) {
-			world = updateWorld(world, next_world)
-
+			world = updateWorld(world)
 		}
 
 		rl.BeginDrawing()
@@ -54,35 +47,45 @@ func main() {
 
 func neighbors(world [][]uint8, x int, y int) int {
 	sum := 0
-	for i := -1; i < 2; i++ {
-		for j := -1; j < 2; j++ {
-			sum += int(world[x+i][y+j])
+	rows, cols := len(world), len(world[0])
+
+	for i := x - 1; i <= x+1; i++ {
+		for j := y - 1; j <= y+1; j++ {
+			if i == x && j == y || i < 0 || j < 0 || i >= rows || j >= cols {
+				continue
+			}
+			if world[i][j] == 1 {
+				sum++
+			}
 		}
 	}
 
-	return sum - int(world[x][y])
+	return sum
 }
 
-func updateWorld(world [][]uint8, next_world [][]uint8) [][]uint8 {
+func updateWorld(world [][]uint8) [][]uint8 {
+	next_world := make([][]uint8, len(world))
+	for i := range next_world {
+		next_world[i] = make([]uint8, len(world[0]))
+	}
+
 	for i := 0; i < len(world); i++ {
 		for j := 0; j < len(world[0]); j++ {
 			if i > 0 && i < len(world)-1 && j > 0 && j < len(world[0])-1 {
 				N := neighbors(world, i, j)
 
-				if world[i][j] == 1 {
-					switch {
-						case (N == 2 || N == 3):
-							next_world[i][j] = world[i][j]
-						case (N > 3 || N < 2):
-							next_world[i][j] = 0
-					}
-				} else if N == 3 {
-						next_world[i][j] = 1
-					}
+				switch {
+				case world[i][j] == 1 && (N == 2 || N == 3):
+					next_world[i][j] = 1
+				case world[i][j] == 0 && N == 3:
+					next_world[i][j] = 1
+				default:
+					next_world[i][j] = 0
 				}
 			}
 		}
+	}
 
-	world = next_world
-	return world
+	return next_world
 }
+
