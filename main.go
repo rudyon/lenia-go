@@ -13,9 +13,9 @@ func main() {
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
 
-	var world = make([][]uint8, world_height)
+	var world = make([][]float64, world_height)
 	for i := range world {
-	    world[i] = make([]uint8, world_width)
+		world[i] = make([]float64, world_width)
 	}
 
 	for !rl.WindowShouldClose() {
@@ -35,9 +35,7 @@ func main() {
 
 		for i := 0; i < len(world); i++ {
 			for j := 0; j < len(world[0]); j++ {
-				if world[i][j] == 1 {
-					rl.DrawRectangle(int32(i)*scaling_value, int32(j)*scaling_value, scaling_value, scaling_value, rl.White)
-				}
+				rl.DrawRectangle(int32(i)*scaling_value, int32(j)*scaling_value, scaling_value, scaling_value, rl.ColorAlpha(rl.White, float32(world[i][j])))
 			}
 		}
 
@@ -45,12 +43,12 @@ func main() {
 	}
 }
 
-func neighbors(world [][]uint8, x int, y int) int {
+func neighbors(world [][]float64, x, y, radius int) int {
 	sum := 0
 	rows, cols := len(world), len(world[0])
 
-	for i := x - 1; i <= x+1; i++ {
-		for j := y - 1; j <= y+1; j++ {
+	for i := x - radius; i <= x+radius; i++ {
+		for j := y - radius; j <= y+radius; j++ {
 			if i == x && j == y || i < 0 || j < 0 || i >= rows || j >= cols {
 				continue
 			}
@@ -63,29 +61,20 @@ func neighbors(world [][]uint8, x int, y int) int {
 	return sum
 }
 
-func updateWorld(world [][]uint8) [][]uint8 {
-	next_world := make([][]uint8, len(world))
-	for i := range next_world {
-		next_world[i] = make([]uint8, len(world[0]))
+func updateWorld(world [][]float64) [][]float64 {
+	nextWorld := make([][]float64, len(world))
+	for i := range nextWorld {
+		nextWorld[i] = make([]float64, len(world[0]))
 	}
 
 	for i := 0; i < len(world); i++ {
 		for j := 0; j < len(world[0]); j++ {
-			if i > 0 && i < len(world)-1 && j > 0 && j < len(world[0])-1 {
-				N := neighbors(world, i, j)
-
-				switch {
-				case world[i][j] == 1 && (N == 2 || N == 3):
-					next_world[i][j] = 1
-				case world[i][j] == 0 && N == 3:
-					next_world[i][j] = 1
-				default:
-					next_world[i][j] = 0
-				}
-			}
+			N := neighbors(world, i, j, 4) // You can adjust the radius as needed
+			B := neighbors(world, i, j, 2) // You can adjust the radius as needed
+			S := world[i][j]
+			nextWorld[i][j] = 0.99*S + 0.01*float64(N+B-N*B)
 		}
 	}
 
-	return next_world
+	return nextWorld
 }
-
