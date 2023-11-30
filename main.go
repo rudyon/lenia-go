@@ -70,7 +70,7 @@ func aliveness(world [][]float64, x, y, radius int) float64 {
 	return sum / weightSum
 }
 
-func neihbors(world [][]float64, x, y, radius int) float64 {
+func neighbors(world [][]float64, x, y, radius int) float64 {
 	weightSum := 0.0
 	sum := 0.0
 	rows, cols := len(world), len(world[0])
