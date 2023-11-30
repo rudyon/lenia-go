@@ -1,6 +1,8 @@
 package main
 
 import (
+	"math"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -25,12 +27,11 @@ func main() {
 			world[rl.GetMouseX()/scaling_value][rl.GetMouseY()/scaling_value] = 0
 		}
 
-		if rl.IsKeyPressed(rl.KeyN) || rl.IsKeyDown(rl.KeySpace) {
-			world = updateWorld(world)
-		}
+		// if rl.IsKeyPressed(rl.KeyN) || rl.IsKeyDown(rl.KeySpace) {
+		// 	world = updateWorld(world)
+		// }
 
 		rl.BeginDrawing()
-
 		rl.ClearBackground(rl.Black)
 
 		for i := 0; i < len(world); i++ {
@@ -43,38 +44,28 @@ func main() {
 	}
 }
 
-func neighbors(world [][]float64, x, y, radius int) int {
-	sum := 0
-	rows, cols := len(world), len(world[0])
-
-	for i := x - radius; i <= x+radius; i++ {
-		for j := y - radius; j <= y+radius; j++ {
-			if i == x && j == y || i < 0 || j < 0 || i >= rows || j >= cols {
-				continue
-			}
-			if world[i][j] == 1 {
-				sum++
-			}
-		}
-	}
-
-	return sum
+func logistic(x float64) float64 {
+	return 1 / (1 + math.Exp(-x))
 }
 
-func updateWorld(world [][]float64) [][]float64 {
-	nextWorld := make([][]float64, len(world))
-	for i := range nextWorld {
-		nextWorld[i] = make([]float64, len(world[0]))
-	}
+func aliveness(world [][]float64, x, y, radius int) float64 {
+	weightSum := 0.0
+	sum := 0.0
+	rows, cols := len(world), len(world[0])
+	center_x, center_y := float64(rows/2), float64(cols/2)
 
-	for i := 0; i < len(world); i++ {
-		for j := 0; j < len(world[0]); j++ {
-			N := neighbors(world, i, j, 4) // You can adjust the radius as needed
-			B := neighbors(world, i, j, 2) // You can adjust the radius as needed
-			S := world[i][j]
-			nextWorld[i][j] = 0.99*S + 0.01*float64(N+B-N*B)
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			if i == x && j == y {
+				continue
+			}
+			dx, dy := float64(i)-center_x, float64(j)-center_y
+			distance := math.Sqrt(dx*dx + dy*dy)
+			weight := logistic((distance - float64(radius)) / 3.0)
+			weightSum += weight
+			sum += weight * world[i][j]
 		}
 	}
 
-	return nextWorld
+	return sum / weightSum
 }
