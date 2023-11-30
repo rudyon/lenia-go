@@ -69,3 +69,30 @@ func aliveness(world [][]float64, x, y, radius int) float64 {
 
 	return sum / weightSum
 }
+
+func neihbors(world [][]float64, x, y, radius int) float64 {
+	weightSum := 0.0
+	sum := 0.0
+	rows, cols := len(world), len(world[0])
+	center_x, center_y := float64(rows/2), float64(cols/2)
+
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			if i == x && j == y {
+				continue
+			}
+			dx, dy := float64(i)-center_x, float64(j)-center_y
+			distance := math.Sqrt(dx*dx + dy*dy)
+			if distance < float64(3*radius) {
+				weight := logistic((distance - float64(radius)) / 3.0)
+				weightSum += weight
+				sum += weight * world[i][j]
+			}
+		}
+	}
+
+	alivenessValue := (sum - logistic(0)) / (weightSum - logistic(0))
+	scaledAliveness := (alivenessValue + 1) / 2 // scale the aliveness value to the range [0, 1]
+
+	return scaledAliveness
+}
