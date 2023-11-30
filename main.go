@@ -1,18 +1,20 @@
 package main
 
 import (
+	"fmt"
+	"math"
 	"math/rand"
+	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 func main() {
 	const width, height int32 = 800, 800
-	const world_width, world_height int32 = 40, 40
+	const world_width, world_height int32 = 50, 50
 	const scaling_value int32 = height / world_height
-	const inner_radius, outer_radius float64 = 0, 0
 
-	world := initWorld(world_height, world_width)
+	world := initWorld(world_height, world_width, int64(time.Second))
 
 	rl.InitWindow(width, height, "lenia-go")
 	rl.SetTargetFPS(30)
@@ -25,7 +27,9 @@ func main() {
 		}
 
 		if rl.IsKeyPressed(rl.KeyN) || rl.IsKeyDown(rl.KeySpace) {
+			fmt.Println("updating")
 			world = updateWorld(world, int(world_height), int(world_width))
+			fmt.Println("done")
 		}
 
 		drawWorld(world, int(scaling_value))
@@ -34,6 +38,15 @@ func main() {
 
 func euclidMod(a, b int) int {
 	return (a%b + b) % b
+}
+
+func clamp(x, max, min float64) float64 {
+	if x > max {
+		return max
+	} else if x < min {
+		return min
+	}
+	return x
 }
 
 func drawWorld(world [][]float64, scaling_value int) {
@@ -51,7 +64,8 @@ func drawWorld(world [][]float64, scaling_value int) {
 	rl.EndDrawing()
 }
 
-func initWorld(world_height, world_width int32) [][]float64 {
+func initWorld(world_height, world_width int32, seed int64) [][]float64 {
+	rand.Seed(seed)
 	var world = make([][]float64, world_height)
 	for i := range world {
 		world[i] = make([]float64, world_width)
@@ -62,24 +76,42 @@ func initWorld(world_height, world_width int32) [][]float64 {
 	return world
 }
 
-func neighbors(world [][]float64, x, y int, width, height int) int {
-	sum := 0
+func kernel(world [][]float64, x, y, radius int, width, height int) float64 {
+	sum := 0.0
+	totalCells := 0
 
-	for i := euclidMod(x, width) - 1; i <= euclidMod(x, width)+1; i++ {
-		for j := euclidMod(y, height) - 1; j <= euclidMod(y, height)+1; j++ {
-			if i == x && j == y {
-				continue
-			}
-			if world[euclidMod(i, width)][euclidMod(j, height)] == 1 {
-				sum++
+	for i := x - radius; i <= x+radius; i++ {
+		for j := y - radius; j <= y+radius; j++ {
+			distance := math.Sqrt(math.Pow(float64(euclidMod(i, width)-x), 2) + math.Pow(float64(euclidMod(j, height)-y), 2))
+			if distance <= float64(radius) {
+				sum += world[euclidMod(i, width)][euclidMod(j, height)]
+				totalCells++
 			}
 		}
 	}
 
-	return sum
+	normalizedSum := sum / float64(totalCells)
+	return normalizedSum
+}
+
+func sigma1(x, a float64) float64 {
+	return 1.0 / +math.Exp(-(x-a)*4/0.028)
+}
+
+func sigma2(x, a, b float64) float64 {
+	return sigma1(x, a) * (1 - sigma1(x, b))
+}
+
+func sigmam(x, y, m float64) float64 {
+	return x*(1-sigma1(m, 0.5)) + y*sigma1(m, 0.5)
+}
+
+func s(n, m, b1, b2, d1, d2 float64) float64 {
+	return sigma2(n, sigmam(b1, d1, m), sigmam(b2, d2, m))
 }
 
 func updateWorld(world [][]float64, width, height int) [][]float64 {
+	const b1, b2, d1, d2 float64 = 0.278, 0.365, 0.267, 0.445
 	next_world := make([][]float64, len(world))
 	for i := range next_world {
 		next_world[i] = make([]float64, len(world[0]))
@@ -87,20 +119,18 @@ func updateWorld(world [][]float64, width, height int) [][]float64 {
 
 	for i := 0; i < len(world); i++ {
 		for j := 0; j < len(world[0]); j++ {
-			if i >= 0 && i < len(world) && j >= 0 && j < len(world[0]) {
-				N := neighbors(world, i, j, width, height)
+			outer_kernel := kernel(world, i, j, 21, width, height)
+			inner_kernel := kernel(world, i, j, 21/3, width, height)
 
-				switch {
-				case world[i][j] == 1 && (N == 2 || N == 3):
-					next_world[i][j] = 1
-				case world[i][j] == 0 && N == 3:
-					next_world[i][j] = 1
-				default:
-					next_world[i][j] = 0
-				}
-			}
+			next_world[i][j] = s(outer_kernel, inner_kernel, b1, b2, d1, d2)
 		}
 	}
 
-	return next_world
+	for i := range world {
+		for j := range world[i] {
+			world[i][j] += 0.1 * next_world[i][j]
+			world[i][j] = clamp(world[i][j], 1, 0)
+		}
+	}
+	return world
 }
