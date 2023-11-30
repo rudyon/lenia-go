@@ -1,8 +1,6 @@
 package main
 
 import (
-	"math"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -15,9 +13,9 @@ func main() {
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
 
-	var world = make([][]float64, world_height)
+	var world = make([][]uint8, world_height)
 	for i := range world {
-		world[i] = make([]float64, world_width)
+		world[i] = make([]uint8, world_width)
 	}
 
 	for !rl.WindowShouldClose() {
@@ -27,16 +25,19 @@ func main() {
 			world[rl.GetMouseX()/scaling_value][rl.GetMouseY()/scaling_value] = 0
 		}
 
-		// if rl.IsKeyPressed(rl.KeyN) || rl.IsKeyDown(rl.KeySpace) {
-		// 	world = updateWorld(world)
-		// }
+		if rl.IsKeyPressed(rl.KeyN) || rl.IsKeyDown(rl.KeySpace) {
+			world = updateWorld(world)
+		}
 
 		rl.BeginDrawing()
+
 		rl.ClearBackground(rl.Black)
 
 		for i := 0; i < len(world); i++ {
 			for j := 0; j < len(world[0]); j++ {
-				rl.DrawRectangle(int32(i)*scaling_value, int32(j)*scaling_value, scaling_value, scaling_value, rl.ColorAlpha(rl.White, float32(world[i][j])))
+				if world[i][j] == 1 {
+					rl.DrawRectangle(int32(i)*scaling_value, int32(j)*scaling_value, scaling_value, scaling_value, rl.White)
+				}
 			}
 		}
 
@@ -44,55 +45,46 @@ func main() {
 	}
 }
 
-func logistic(x float64) float64 {
-	return 1 / (1 + math.Exp(-x))
-}
-
-func aliveness(world [][]float64, x, y, radius int) float64 {
-	weightSum := 0.0
-	sum := 0.0
+func neighbors(world [][]uint8, x int, y int) int {
+	sum := 0
 	rows, cols := len(world), len(world[0])
-	center_x, center_y := float64(rows/2), float64(cols/2)
 
-	for i := 0; i < rows; i++ {
-		for j := 0; j < cols; j++ {
-			if i == x && j == y {
+	for i := x - 1; i <= x+1; i++ {
+		for j := y - 1; j <= y+1; j++ {
+			if i == x && j == y || i < 0 || j < 0 || i >= rows || j >= cols {
 				continue
 			}
-			dx, dy := float64(i)-center_x, float64(j)-center_y
-			distance := math.Sqrt(dx*dx + dy*dy)
-			weight := logistic((distance - float64(radius)) / 3.0)
-			weightSum += weight
-			sum += weight * world[i][j]
-		}
-	}
-
-	return sum / weightSum
-}
-
-func neighbors(world [][]float64, x, y, radius int) float64 {
-	weightSum := 0.0
-	sum := 0.0
-	rows, cols := len(world), len(world[0])
-	center_x, center_y := float64(rows/2), float64(cols/2)
-
-	for i := 0; i < rows; i++ {
-		for j := 0; j < cols; j++ {
-			if i == x && j == y {
-				continue
-			}
-			dx, dy := float64(i)-center_x, float64(j)-center_y
-			distance := math.Sqrt(dx*dx + dy*dy)
-			if distance < float64(3*radius) {
-				weight := logistic((distance - float64(radius)) / 3.0)
-				weightSum += weight
-				sum += weight * world[i][j]
+			if world[i][j] == 1 {
+				sum++
 			}
 		}
 	}
 
-	alivenessValue := (sum - logistic(0)) / (weightSum - logistic(0))
-	scaledAliveness := (alivenessValue + 1) / 2 // scale the aliveness value to the range [0, 1]
+	return sum
+}
 
-	return scaledAliveness
+func updateWorld(world [][]uint8) [][]uint8 {
+	next_world := make([][]uint8, len(world))
+	for i := range next_world {
+		next_world[i] = make([]uint8, len(world[0]))
+	}
+
+	for i := 0; i < len(world); i++ {
+		for j := 0; j < len(world[0]); j++ {
+			if i > 0 && i < len(world)-1 && j > 0 && j < len(world[0])-1 {
+				N := neighbors(world, i, j)
+
+				switch {
+				case world[i][j] == 1 && (N == 2 || N == 3):
+					next_world[i][j] = 1
+				case world[i][j] == 0 && N == 3:
+					next_world[i][j] = 1
+				default:
+					next_world[i][j] = 0
+				}
+			}
+		}
+	}
+
+	return next_world
 }
