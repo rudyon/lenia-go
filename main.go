@@ -1,22 +1,20 @@
 package main
 
 import (
+	"math/rand"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 func main() {
 	const window_width, window_height = 800, 800
-	const world_width, world_height = 50, 50
+	const world_width, world_height = 40, 40
 	const scaling_value = window_height / world_height
 
-	rl.InitWindow(window_width, window_height, "lenia-go")
-	defer rl.CloseWindow()
-	rl.SetTargetFPS(30)
+	world := initWorld(world_height, world_width)
 
-	var world = make([][]uint8, world_height)
-	for i := range world {
-		world[i] = make([]uint8, world_width)
-	}
+	rl.InitWindow(window_width, window_height, "lenia-go")
+	rl.SetTargetFPS(30)
 
 	for !rl.WindowShouldClose() {
 		if rl.IsMouseButtonDown(rl.MouseLeftButton) {
@@ -29,23 +27,37 @@ func main() {
 			world = updateWorld(world)
 		}
 
-		rl.BeginDrawing()
-
-		rl.ClearBackground(rl.Black)
-
-		for i := 0; i < len(world); i++ {
-			for j := 0; j < len(world[0]); j++ {
-				if world[i][j] == 1 {
-					rl.DrawRectangle(int32(i)*scaling_value, int32(j)*scaling_value, scaling_value, scaling_value, rl.White)
-				}
-			}
-		}
-
-		rl.EndDrawing()
+		drawWorld(world, scaling_value)
 	}
 }
 
-func neighbors(world [][]uint8, x int, y int) int {
+func drawWorld(world [][]float64, scaling_value int) {
+	rl.BeginDrawing()
+	rl.ClearBackground(rl.Black)
+
+	for i := 0; i < len(world); i++ {
+		for j := 0; j < len(world[0]); j++ {
+			alpha := world[i][j]
+			color := rl.ColorAlpha(rl.White, float32(alpha))
+			rl.DrawRectangle(int32(i*scaling_value), int32(j*scaling_value), int32(scaling_value), int32(scaling_value), color)
+		}
+	}
+
+	rl.EndDrawing()
+}
+
+func initWorld(world_height int, world_width int) [][]float64 {
+	var world = make([][]float64, world_height)
+	for i := range world {
+		world[i] = make([]float64, world_width)
+		for j := range world[i] {
+			world[i][j] = float64(rand.Float64())
+		}
+	}
+	return world
+}
+
+func neighbors(world [][]float64, x int, y int) int {
 	sum := 0
 	rows, cols := len(world), len(world[0])
 
@@ -63,15 +75,15 @@ func neighbors(world [][]uint8, x int, y int) int {
 	return sum
 }
 
-func updateWorld(world [][]uint8) [][]uint8 {
-	next_world := make([][]uint8, len(world))
+func updateWorld(world [][]float64) [][]float64 {
+	next_world := make([][]float64, len(world))
 	for i := range next_world {
-		next_world[i] = make([]uint8, len(world[0]))
+		next_world[i] = make([]float64, len(world[0]))
 	}
 
 	for i := 0; i < len(world); i++ {
 		for j := 0; j < len(world[0]); j++ {
-			if i > 0 && i < len(world)-1 && j > 0 && j < len(world[0])-1 {
+			if i >= 0 && i < len(world) && j >= 0 && j < len(world[0]) {
 				N := neighbors(world, i, j)
 
 				switch {
