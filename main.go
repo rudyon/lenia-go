@@ -7,13 +7,14 @@ import (
 )
 
 func main() {
-	const window_width, window_height = 800, 800
-	const world_width, world_height = 40, 40
-	const scaling_value = window_height / world_height
+	const width, height int32 = 800, 800
+	const world_width, world_height int32 = 40, 40
+	const scaling_value int32 = height / world_height
+	const inner_radius, outer_radius float64 = 0, 0
 
 	world := initWorld(world_height, world_width)
 
-	rl.InitWindow(window_width, window_height, "lenia-go")
+	rl.InitWindow(width, height, "lenia-go")
 	rl.SetTargetFPS(30)
 
 	for !rl.WindowShouldClose() {
@@ -24,11 +25,15 @@ func main() {
 		}
 
 		if rl.IsKeyPressed(rl.KeyN) || rl.IsKeyDown(rl.KeySpace) {
-			world = updateWorld(world)
+			world = updateWorld(world, int(world_height), int(world_width))
 		}
 
-		drawWorld(world, scaling_value)
+		drawWorld(world, int(scaling_value))
 	}
+}
+
+func euclidMod(a, b int) int {
+	return (a%b + b) % b
 }
 
 func drawWorld(world [][]float64, scaling_value int) {
@@ -46,7 +51,7 @@ func drawWorld(world [][]float64, scaling_value int) {
 	rl.EndDrawing()
 }
 
-func initWorld(world_height int, world_width int) [][]float64 {
+func initWorld(world_height, world_width int32) [][]float64 {
 	var world = make([][]float64, world_height)
 	for i := range world {
 		world[i] = make([]float64, world_width)
@@ -57,16 +62,15 @@ func initWorld(world_height int, world_width int) [][]float64 {
 	return world
 }
 
-func neighbors(world [][]float64, x int, y int) int {
+func neighbors(world [][]float64, x, y int, width, height int) int {
 	sum := 0
-	rows, cols := len(world), len(world[0])
 
-	for i := x - 1; i <= x+1; i++ {
-		for j := y - 1; j <= y+1; j++ {
-			if i == x && j == y || i < 0 || j < 0 || i >= rows || j >= cols {
+	for i := euclidMod(x, width) - 1; i <= euclidMod(x, width)+1; i++ {
+		for j := euclidMod(y, height) - 1; j <= euclidMod(y, height)+1; j++ {
+			if i == x && j == y {
 				continue
 			}
-			if world[i][j] == 1 {
+			if world[euclidMod(i, width)][euclidMod(j, height)] == 1 {
 				sum++
 			}
 		}
@@ -75,7 +79,7 @@ func neighbors(world [][]float64, x int, y int) int {
 	return sum
 }
 
-func updateWorld(world [][]float64) [][]float64 {
+func updateWorld(world [][]float64, width, height int) [][]float64 {
 	next_world := make([][]float64, len(world))
 	for i := range next_world {
 		next_world[i] = make([]float64, len(world[0]))
@@ -84,7 +88,7 @@ func updateWorld(world [][]float64) [][]float64 {
 	for i := 0; i < len(world); i++ {
 		for j := 0; j < len(world[0]); j++ {
 			if i >= 0 && i < len(world) && j >= 0 && j < len(world[0]) {
-				N := neighbors(world, i, j)
+				N := neighbors(world, i, j, width, height)
 
 				switch {
 				case world[i][j] == 1 && (N == 2 || N == 3):
