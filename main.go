@@ -1,36 +1,25 @@
 package main
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
-	"time"
+	"sync"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 func main() {
 	const width, height int32 = 800, 800
-	const world_width, world_height int32 = 50, 50
+	const world_width, world_height int32 = 100, 100
 	const scaling_value int32 = height / world_height
 
-	world := initWorld(world_height, world_width, int64(time.Second))
+	world := initWorld(world_height, world_width)
 
 	rl.InitWindow(width, height, "lenia-go")
-	rl.SetTargetFPS(30)
+	rl.SetConfigFlags(rl.FlagVsyncHint)
 
 	for !rl.WindowShouldClose() {
-		if rl.IsMouseButtonDown(rl.MouseLeftButton) {
-			world[rl.GetMouseX()/scaling_value][rl.GetMouseY()/scaling_value] = 1
-		} else if rl.IsMouseButtonDown(rl.MouseRightButton) {
-			world[rl.GetMouseX()/scaling_value][rl.GetMouseY()/scaling_value] = 0
-		}
-
-		if rl.IsKeyPressed(rl.KeyN) || rl.IsKeyDown(rl.KeySpace) {
-			fmt.Println("updating")
-			world = updateWorld(world, int(world_height), int(world_width))
-			fmt.Println("done")
-		}
+		world = updateWorld(world, int(world_height), int(world_width))
 
 		drawWorld(world, int(scaling_value))
 	}
@@ -57,15 +46,14 @@ func drawWorld(world [][]float64, scaling_value int) {
 		for j := 0; j < len(world[0]); j++ {
 			alpha := world[i][j]
 			color := rl.ColorAlpha(rl.White, float32(alpha))
-			rl.DrawRectangle(int32(i*scaling_value), int32(j*scaling_value), int32(scaling_value), int32(scaling_value), color)
+			rl.DrawRectangleV(rl.NewVector2(float32(i*scaling_value), float32(j*scaling_value)), rl.NewVector2(float32(scaling_value), float32(scaling_value)), color)
 		}
 	}
 
 	rl.EndDrawing()
 }
 
-func initWorld(world_height, world_width int32, seed int64) [][]float64 {
-	rand.Seed(seed)
+func initWorld(world_height, world_width int32) [][]float64 {
 	var world = make([][]float64, world_height)
 	for i := range world {
 		world[i] = make([]float64, world_width)
@@ -74,24 +62,6 @@ func initWorld(world_height, world_width int32, seed int64) [][]float64 {
 		}
 	}
 	return world
-}
-
-func kernel(world [][]float64, x, y, radius int, width, height int) float64 {
-	sum := 0.0
-	totalCells := 0
-
-	for i := x - radius; i <= x+radius; i++ {
-		for j := y - radius; j <= y+radius; j++ {
-			distance := math.Sqrt(math.Pow(float64(euclidMod(i, width)-x), 2) + math.Pow(float64(euclidMod(j, height)-y), 2))
-			if distance <= float64(radius) {
-				sum += world[euclidMod(i, width)][euclidMod(j, height)]
-				totalCells++
-			}
-		}
-	}
-
-	normalizedSum := sum / float64(totalCells)
-	return normalizedSum
 }
 
 func sigma1(x, a float64) float64 {
@@ -117,20 +87,64 @@ func updateWorld(world [][]float64, width, height int) [][]float64 {
 		next_world[i] = make([]float64, len(world[0]))
 	}
 
+	var wg sync.WaitGroup
 	for i := 0; i < len(world); i++ {
-		for j := 0; j < len(world[0]); j++ {
-			outer_kernel := kernel(world, i, j, 21, width, height)
-			inner_kernel := kernel(world, i, j, 21/3, width, height)
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < len(world[0]); j++ {
+				outer_kernel := calculateOuterKernel(world, i, j, 11, width, height)
+				inner_kernel := calculateInnerKernel(world, i, j, 11/3, width, height)
 
-			next_world[i][j] = s(outer_kernel, inner_kernel, b1, b2, d1, d2)
-		}
+				next_world[i][j] = s(outer_kernel, inner_kernel, b1, b2, d1, d2)
+			}
+		}(i)
 	}
+	wg.Wait()
 
 	for i := range world {
 		for j := range world[i] {
-			world[i][j] += 0.1 * next_world[i][j]
+			world[i][j] += 1 * next_world[i][j]
 			world[i][j] = clamp(world[i][j], 1, 0)
 		}
 	}
 	return world
+}
+
+func calculateOuterKernel(world [][]float64, x, y, radius int, width, height int) float64 {
+	sum := 0.0
+	totalWeight := 0.0
+
+	for i := x - radius; i <= x+radius; i++ {
+		for j := y - radius; j <= y+radius; j++ {
+			if i != x || j != y { // Skip inner_kernel calculation for the center point
+				distance := math.Sqrt(math.Pow(float64(euclidMod(i, width)-x), 2) + math.Pow(float64(euclidMod(j, height)-y), 2))
+				weight := math.Exp(-0.5 * math.Pow(distance/float64(radius*3), 2))
+
+				sum += weight * world[euclidMod(i, width)][euclidMod(j, height)]
+				totalWeight += weight
+			}
+		}
+	}
+
+	normalizedSum := sum / totalWeight
+	return normalizedSum
+}
+
+func calculateInnerKernel(world [][]float64, x, y, radius int, width, height int) float64 {
+	sum := 0.0
+	totalWeight := 0.0
+
+	for i := x - radius; i <= x+radius; i++ {
+		for j := y - radius; j <= y+radius; j++ {
+			distance := math.Sqrt(math.Pow(float64(euclidMod(i, width)-x), 2) + math.Pow(float64(euclidMod(j, height)-y), 2))
+			weight := math.Exp(-0.5 * math.Pow(distance/float64(radius), 2))
+
+			sum += weight * world[euclidMod(i, width)][euclidMod(j, height)]
+			totalWeight += weight
+		}
+	}
+
+	normalizedSum := sum / totalWeight
+	return normalizedSum
 }
