@@ -36,7 +36,7 @@ func main() {
 	rl.SetConfigFlags(rl.FlagVsyncHint)
 
 	for !rl.WindowShouldClose() {
-		world = updateWorld(world, int(worldHeight), int(worldWidth))
+		world = updateWorld(world, int(worldHeight), int(worldWidth), b1, b2, d1, d2)
 
 		drawWorld(world, int(scalingValue))
 	}
@@ -107,8 +107,7 @@ func s(n, m, b1, b2, d1, d2 float64) float64 {
 	return sigma2(n, sigmam(b1, d1, m), sigmam(b2, d2, m))
 }
 
-func updateWorld(world [][]float64, width, height int) [][]float64 {
-	const b1, b2, d1, d2 float64 = 0.278, 0.365, 0.267, 0.445
+func updateWorld(world [][]float64, width, height int, b1, b2, d1, d2 float64) [][]float64 {
 	nextWorld := make([][]float64, len(world))
 	for i := range nextWorld {
 		nextWorld[i] = make([]float64, len(world[0]))
