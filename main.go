@@ -111,7 +111,7 @@ func updateWorld(world [][]float64, width, height int) [][]float64 {
 	return world
 }
 
-func calculateKernel(world [][]float64, x, y, radius int, width, height int, wrap func(int, int) (int, int)) float64 {
+func calculateKernel(world [][]float64, x, y, radius int, width, height int, wrap func(int, int) (int, int), skipCenter bool) float64 {
 	sum := 0.0
 	totalWeight := 0.0
 
@@ -120,7 +120,7 @@ func calculateKernel(world [][]float64, x, y, radius int, width, height int, wra
 			// Wrap around the edges
 			ii, jj := wrap(i, j)
 
-			if ii != x || jj != y {
+			if !(skipCenter && ii == x && jj == y) {
 				distance := math.Sqrt(math.Pow(float64(ii-x), 2) + math.Pow(float64(jj-y), 2))
 				weight := math.Exp(-0.5 * math.Pow(distance/float64(radius), 2))
 
@@ -139,7 +139,7 @@ func calculateOuterKernel(world [][]float64, x, y, radius int, width, height int
 		return euclidMod(i, width), euclidMod(j, height)
 	}
 
-	return calculateKernel(world, x, y, radius, width, height, wrap)
+	return calculateKernel(world, x, y, radius, width, height, wrap, true)
 }
 
 func calculateInnerKernel(world [][]float64, x, y, radius int, width, height int) float64 {
@@ -147,5 +147,5 @@ func calculateInnerKernel(world [][]float64, x, y, radius int, width, height int
 		return euclidMod(i, width), euclidMod(j, height)
 	}
 
-	return calculateKernel(world, x, y, radius, width, height, wrap)
+	return calculateKernel(world, x, y, radius, width, height, wrap, false)
 }
