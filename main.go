@@ -19,9 +19,14 @@ const (
 )
 
 var (
-	ra     float64 = 11
-	alphaN float64 = 0.028
-	dt     float64 = 0.05
+	ra    float64 = 11
+	alpha float64 = 0.028
+	dt    float64 = 0.05
+
+	b1 float64 = 0.278
+	b2 float64 = 0.365
+	d1 float64 = 0.267
+	d2 float64 = 0.445
 )
 
 func main() {
@@ -87,7 +92,7 @@ func initWorld(worldHeight, worldWidth int32, numSquares, squareSize int) [][]fl
 }
 
 func sigma1(x, a float64) float64 {
-	return 1.0 / (1.0 + math.Exp(-(x-a)*4/alphaN))
+	return 1.0 / (1.0 + math.Exp(-(x-a)*4/alpha))
 }
 
 func sigma2(x, a, b float64) float64 {
